@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Capstone test client</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header>
+  <h1>Capstone test client</h1>
+  <details>
+    <summary>Service URLs</summary>
+    <div class="urls">
+      <label>Auth   <input id="urlAuth" /></label>
+      <label>Post   <input id="urlPost" /></label>
+      <label>Feed   <input id="urlFeed" /></label>
+      <button id="saveUrls">save</button>
+    </div>
+  </details>
+  <div id="me" class="me"></div>
+</header>
+
+<main>
+  <section id="authSection">
+    <h2>Auth</h2>
+    <form id="registerForm" class="row">
+      <input name="email" type="email" placeholder="email" required />
+      <input name="password" type="password" placeholder="password (≥8)" required minlength="8" />
+      <input name="display_name" placeholder="display name" required />
+      <button type="submit">Register</button>
+    </form>
+    <form id="loginForm" class="row">
+      <input name="email" type="email" placeholder="email" required />
+      <input name="password" type="password" placeholder="password" required />
+      <button type="submit">Login</button>
+    </form>
+    <button id="logoutBtn" class="ghost" hidden>Logout</button>
+  </section>
+
+  <section id="composeSection" hidden>
+    <h2>Compose</h2>
+    <form id="composeForm">
+      <textarea name="content" placeholder="What's happening?" maxlength="2000" required></textarea>
+      <input name="image" type="file" accept="image/*" />
+      <button type="submit">Post</button>
+    </form>
+  </section>
+
+  <section id="followSection" hidden>
+    <h2>Follow</h2>
+    <form id="followForm" class="row">
+      <input name="followee_id" placeholder="user-id (UUID) to follow" required />
+      <button type="submit">Follow</button>
+      <button id="unfollowBtn" type="button" class="ghost">Unfollow</button>
+    </form>
+  </section>
+
+  <section id="feedSection" hidden>
+    <div class="feedHeader">
+      <h2>Feed</h2>
+      <button id="refreshFeed" class="ghost">Refresh</button>
+    </div>
+    <div id="feed"></div>
+  </section>
+</main>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
