@@ -61,11 +61,12 @@ button.ghost:hover { background: #e8f1fc; }
   background: #fff;
 }
 .post .meta { font-size: 12px; color: #6e6e73; display: flex; justify-content: space-between; gap: 8px; }
-.post .author { font-family: ui-monospace, monospace; word-break: break-all; }
+.post .author { font-weight: 600; color: #1d1d1f; word-break: break-word; }
 .post .content { margin: 6px 0; white-space: pre-wrap; }
 .post .media img { max-width: 100%; border-radius: 8px; margin-top: 6px; }
-.post .actions { display: flex; gap: 8px; margin-top: 6px; }
+.post .actions { display: flex; gap: 8px; margin-top: 6px; align-items: center; }
 .post .actions button { padding: 4px 10px; font-size: 12px; }
+.post .likeCount { font-size: 12px; color: #6e6e73; margin-left: auto; }
 
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);

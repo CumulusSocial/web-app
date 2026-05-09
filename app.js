@@ -72,7 +72,12 @@ function refreshAuthUI() {
   show($("#registerForm"), !loggedIn);
   show($("#loginForm"), !loggedIn);
   $("#me").textContent = loggedIn ? `Signed in as ${userId}` : "Not signed in";
-  if (loggedIn) loadFeed();
+  if (loggedIn) {
+    getUserName(userId).then((name) => {
+      $("#me").textContent = `Signed in as ${name}`;
+    });
+    loadFeed();
+  }
 }
 
 // ─── auth ─────────────────────────────────────────────────────────────────
@@ -159,13 +164,24 @@ $("#composeForm").onsubmit = async (e) => {
 };
 
 // ─── follow ──────────────────────────────────────────────────────────────
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveFollowee(input) {
+  const v = input.trim();
+  if (!v) throw new Error("Enter a user name first");
+  if (UUID_RE.test(v)) return v;
+  const user = await request(cfg.auth, `/users/by-name/${encodeURIComponent(v)}`);
+  return user.user_id;
+}
+
 $("#followForm").onsubmit = async (e) => {
   e.preventDefault();
   const f = e.target;
   try {
+    const followee_id = await resolveFollowee(f.followee_id.value);
     await request(cfg.post, "/follow", {
       method: "POST",
-      body: { followee_id: f.followee_id.value.trim() },
+      body: { followee_id },
     });
     toast("Followed");
   } catch (err) {
@@ -173,12 +189,11 @@ $("#followForm").onsubmit = async (e) => {
   }
 };
 $("#unfollowBtn").onclick = async () => {
-  const id = $("#followForm").followee_id.value.trim();
-  if (!id) return toast("Enter a user-id first", "error");
   try {
+    const followee_id = await resolveFollowee($("#followForm").followee_id.value);
     await request(cfg.post, "/follow", {
       method: "DELETE",
-      body: { followee_id: id },
+      body: { followee_id },
     });
     toast("Unfollowed");
   } catch (err) {
@@ -206,6 +221,17 @@ async function loadFeed() {
   }
 }
 
+// Tiny per-session cache so we don't refetch the same user repeatedly.
+const userCache = new Map();
+async function getUserName(userId) {
+  if (userCache.has(userId)) return userCache.get(userId);
+  const p = request(cfg.auth, `/users/${userId}`)
+    .then((u) => u.display_name)
+    .catch(() => userId); // fall back to UUID if lookup fails
+  userCache.set(userId, p);
+  return p;
+}
+
 function renderPost(item) {
   const wrap = document.createElement("div");
   wrap.className = "post";
@@ -220,34 +246,49 @@ function renderPost(item) {
     <div class="actions">
       <button class="ghost like">Like</button>
       <button class="ghost unlike">Unlike</button>
+      <span class="likeCount">0 likes</span>
     </div>
   `;
   wrap.querySelector(".content").textContent = item.content;
-  // feed-service returns media_keys on the timeline item; we don't have presigned
-  // GET URLs there. Fetch the post via Post Service to get media_urls.
-  if (item.media_keys && item.media_keys.length) {
-    request(cfg.post, `/posts/by-id/${item.post_id}`)
-      .then((p) => {
-        const mediaEl = wrap.querySelector(".media");
-        for (const url of p.media_urls || []) {
-          const img = document.createElement("img");
-          img.src = url;
-          img.alt = "";
-          mediaEl.appendChild(img);
-        }
-      })
-      .catch(() => { /* ignore */ });
-  }
-  wrap.querySelector(".like").onclick = () => toggleLike(item.post_id, true);
-  wrap.querySelector(".unlike").onclick = () => toggleLike(item.post_id, false);
+
+  getUserName(item.author_id).then((name) => {
+    wrap.querySelector(".author").textContent = name;
+  });
+
+  // Fetch full post for media URLs + like count.
+  request(cfg.post, `/posts/by-id/${item.post_id}`)
+    .then((p) => {
+      const mediaEl = wrap.querySelector(".media");
+      for (const url of p.media_urls || []) {
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        mediaEl.appendChild(img);
+      }
+      setLikeCount(wrap, p.likes_count ?? 0);
+    })
+    .catch(() => { /* ignore */ });
+
+  wrap.querySelector(".like").onclick = () => toggleLike(item.post_id, true, wrap);
+  wrap.querySelector(".unlike").onclick = () => toggleLike(item.post_id, false, wrap);
   return wrap;
 }
 
-async function toggleLike(postId, liking) {
+function setLikeCount(wrap, n) {
+  const el = wrap.querySelector(".likeCount");
+  el.textContent = `${n} like${n === 1 ? "" : "s"}`;
+  el.dataset.count = String(n);
+}
+
+async function toggleLike(postId, liking, wrap) {
   try {
     await request(cfg.post, `/posts/${postId}/like`, {
       method: liking ? "POST" : "DELETE",
     });
+    // Refresh the count from the server so it stays accurate even on no-op
+    // (e.g. liking twice).
+    const p = await request(cfg.post, `/posts/by-id/${postId}`);
+    setLikeCount(wrap, p.likes_count ?? 0);
     toast(liking ? "Liked" : "Unliked");
   } catch (err) {
     toast(err.message, "error");
